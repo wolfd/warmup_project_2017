@@ -60,7 +60,9 @@ class SquareDance(object):
         self.left_front_triggered = msg.leftFront
         self.right_front_triggered = msg.rightFront
 
-        self.running = False
+        if self.left_front_triggered or self.right_front_triggered:
+            print('stopping due to bump')
+            self.running = False
 
     def update_odometry(self, msg):
         if self.position is None or self.orientation is None:
@@ -81,7 +83,6 @@ class SquareDance(object):
 
     def transform_to_odom(self, destination_base_link):
         theta = self.get_angle()
-        print theta
         rot = np.matrix([[np.cos(theta), -1*np.sin(theta), 0],
                         [np.sin(theta) ,    np.cos(theta), 0], 
                         [0             ,  0              , 1]])
@@ -95,12 +96,10 @@ class SquareDance(object):
     def go_forward(self, distance=1.0):
         r = rospy.Rate(50)
         destination_odom = self.transform_to_odom(np.array([distance, 0.0, 0.0]))
-        print destination_odom
 
         move_starting_position = self.position
 
         while not rospy.is_shutdown() and self.running:
-            print self.position
             self.publish_destination(destination_odom[0, 0], destination_odom[0, 1], destination_odom[0, 2])
             if self.distance_to(move_starting_position) < distance:
                 fwd_msg = Twist(linear=Vector3(1.0, 0.0, 0.0))
@@ -119,13 +118,8 @@ class SquareDance(object):
         starting_angle = self.get_angle()
         final_angle = starting_angle + angle
 
-        print('starting angle is ' + str(starting_angle))
-        print('final angle is ' + str(final_angle))
-
         while not rospy.is_shutdown() and self.running:
             delta = self.delta_angle(self.get_angle(), final_angle)
-            print('delta angle' + str(delta))
-            print('get_angle ' + str(self.get_angle()))
             if abs(delta) >= math.pi / 100.0:
                 turn_msg = Twist(angular=Vector3(0.0, 0.0, -delta * 1.0))
                 self.publisher.publish(turn_msg)
@@ -144,7 +138,7 @@ class SquareDance(object):
             r.sleep()
 
         for i in range(4):
-            self.go_forward(distance=0.5)
+            self.go_forward(distance=1.0)
             self.rotate(-math.pi / 2.0)
 
         
