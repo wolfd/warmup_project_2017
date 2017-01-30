@@ -6,6 +6,7 @@ project(warmup_project)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
+  neato_node
   rospy
   sensor_msgs
   std_msgs
@@ -103,7 +104,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES warmup_project
-#  CATKIN_DEPENDS geometry_msgs rospy sensor_msgs std_msgs
+#  CATKIN_DEPENDS geometry_msgs neato_node rospy sensor_msgs std_msgs
 #  DEPENDS system_lib
 )
 
