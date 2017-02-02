@@ -4,6 +4,7 @@ from geometry_msgs.msg import Twist, Vector3, PointStamped, Point
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
 from neato_node.msg import Bump
+from sensor_msgs.msg import LaserScan
 import numpy as np
 import tf
 import math
@@ -11,141 +12,66 @@ import math
 
 import rospy
 
-class SquareDance(object):
+class WallFollower(object):
     def __init__(self):
-        super(SquareDance, self).__init__()
-        self.left_front_triggered = 0
-        self.right_front_triggered = 0
+        super(WallFollower, self).__init__()
+        rospy.init_node('wall_follower')
+        self.point_publisher = rospy.Publisher('/wall', PointStamped, queue_size=10)
+        self.movement_publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+        rospy.Subscriber('/stable_scan', LaserScan, self.process_scan)
 
-        self.position = None
-        self.orientation = None
-
-        self.starting_position = None
-        self.starting_orientation = None
-
-        self.running = False
-
-        rospy.init_node('square_dance')
-
-        rospy.Subscriber('/bump', Bump, self.detect_bump)
-        rospy.Subscriber('/odom', Odometry, self.update_odometry)
-        self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
-
-        self.destination_publisher = rospy.Publisher('/destination', PointStamped, queue_size=10)
+        self.got_first_message = False
+        self.offset_angle = 15
+        self.base_angle = 90
+        self.left_wall_point = 0
+        self.right_wall_point = 0
+        self.k = 5.0
 
         rospy.on_shutdown(self.stop)
 
-    def publish_destination(self, x, y, z):
-        self.destination_publisher.publish(
-            PointStamped(
-                header=Header(stamp=rospy.Time.now(), frame_id='odom'),
-                point=Point(x, y, z)
-            )
-        )
-
-    def convert_to_euler(self, x, y, z, w):
-        quaternion = (x, y, z, w)
-        euler = tf.transformations.euler_from_quaternion(quaternion)
-        roll = euler[0]
-        pitch = euler[1]
-        yaw = euler[2]
-        return np.array([roll, pitch, yaw])
-
     def stop(self):
-        self.publisher.publish(
+        self.movement_publisher.publish(
             Twist(linear=Vector3(0.0, 0.0, 0.0), angular=Vector3(0.0, 0.0, 0.0))
         )
 
-    def detect_bump(self, msg):
-        self.left_front_triggered = msg.leftFront
-        self.right_front_triggered = msg.rightFront
+    def process_scan(self, msg):
+        self.left_wall_point = msg.ranges[(self.base_angle + self.offset_angle) % 360]
+        self.right_wall_point = msg.ranges[(self.base_angle - self.offset_angle) % 360]
 
-    def update_odometry(self, msg):
-        if self.position is None or self.orientation is None:
-            pos = msg.pose.pose.position
-            self.starting_position = np.array([pos.x, pos.y, pos.z])
-            quat = msg.pose.pose.orientation
-            self.starting_orientation = self.convert_to_euler(quat.x, quat.y, quat.z, quat.w)
-        current_pos = msg.pose.pose.position
-        self.position = np.array([current_pos.x, current_pos.y, current_pos.z])
-        current_quat = msg.pose.pose.orientation
-        self.orientation = self.convert_to_euler(current_quat.x, current_quat.y, current_quat.z, current_quat.w)
+        if not self.got_first_message:
+            self.got_first_message = True
 
-        if not self.running:
-            self.running = True
-    
-    def get_angle(self):
-        return -self.orientation[2]
+    def publish_point(self, x, y):
+        self.point_publisher.publish(
+            PointStamped(
+                header=Header(stamp=rospy.Time.now(), frame_id='base_link'),
+                point=Point(x, y, 0)
+            )
+        )
 
-    def transform_to_odom(self, destination_base_link):
-        theta = self.get_angle()
-        print theta
-        rot = np.matrix([[np.cos(theta), -1*np.sin(theta), 0],
-                        [np.sin(theta) ,    np.cos(theta), 0], 
-                        [0             ,  0              , 1]])
-        # Should this be position or starting position?
-        destination_odom = np.matrix(destination_base_link) * rot + self.position
-        return destination_odom
-
-    def distance_to(self, point):
-        return np.linalg.norm(point - self.position)
-
-    def go_forward(self, distance=1.0):
-        r = rospy.Rate(50)
-        destination_odom = self.transform_to_odom(np.array([distance, 0.0, 0.0]))
-        print destination_odom
-
-        move_starting_position = self.position
-
-        while not rospy.is_shutdown() and self.running:
-            print self.position
-            self.publish_destination(destination_odom[0, 0], destination_odom[0, 1], destination_odom[0, 2])
-            if self.distance_to(move_starting_position) < distance:
-                fwd_msg = Twist(linear=Vector3(1.0, 0.0, 0.0))
-                self.publisher.publish(fwd_msg)
-            else:
-                self.stop()
-                return
-            r.sleep()
-
-    def delta_angle(self, a, b):
-        return ((b - a) + math.pi) % (math.pi * 2.0) - math.pi
-
-    def rotate(self, angle):
-        r = rospy.Rate(50)
-
-        starting_angle = self.get_angle()
-        final_angle = starting_angle + angle
-
-        print('starting angle is ' + str(starting_angle))
-        print('final angle is ' + str(final_angle))
-
-        while not rospy.is_shutdown() and self.running:
-            delta = self.delta_angle(self.get_angle(), final_angle)
-            print('delta angle' + str(delta))
-            print('get_angle ' + str(self.get_angle()))
-            if abs(delta) >= math.pi / 100.0:
-                turn_msg = Twist(angular=Vector3(0.0, 0.0, -delta * 1.0))
-                self.publisher.publish(turn_msg)
-            else:
-                self.stop()
-                return
-            r.sleep()
-
-
+    # def publish_wall_points(publisher, base_angle, offset_angle):
+    #     publish_point()
 
     def run(self):
         r = rospy.Rate(50)
 
-        # Wait for the first odometry position update to come in
-        while not self.running:
+        while not self.got_first_message:
             r.sleep()
 
-        for i in range(4):
-            self.go_forward(distance=0.5)
-            self.rotate(-math.pi / 2.0)
+        while not rospy.is_shutdown():
+            print 'Left Point: ' + str(self.left_wall_point)
+            print 'Right Point: ' + str(self.right_wall_point)
+            print 'angular: ' + str(self.right_wall_point - self.left_wall_point)
 
-        
-        print('done!')
+            fwd_msg = Twist(linear=Vector3(0.75, 0.0, 0.0), 
+                            angular=Vector3(0.0, 0.0, self.k * (self.right_wall_point - self.left_wall_point)))
+            self.movement_publisher.publish(fwd_msg)
 
-SquareDance().run()
+            r.sleep()
+
+
+
+
+
+WallFollower().run()
+
