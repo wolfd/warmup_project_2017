@@ -21,11 +21,11 @@ class WallFollower(object):
         rospy.Subscriber('/stable_scan', LaserScan, self.process_scan)
 
         self.got_first_message = False
-        self.offset_angle = 15
+        self.offset_angle = 45
         self.base_angle = 90
         self.left_wall_point = 0
         self.right_wall_point = 0
-        self.k = 5.0
+        self.k = 2.0
 
         rospy.on_shutdown(self.stop)
 
@@ -35,8 +35,12 @@ class WallFollower(object):
         )
 
     def process_scan(self, msg):
-        self.left_wall_point = msg.ranges[(self.base_angle + self.offset_angle) % 360]
-        self.right_wall_point = msg.ranges[(self.base_angle - self.offset_angle) % 360]
+        temp_L = msg.ranges[(self.base_angle + self.offset_angle) % 360]
+        if temp_L != 0.0:
+          self.left_wall_point = temp_L
+        temp_R = msg.ranges[(self.base_angle - self.offset_angle) % 360]
+        if temp_R != 0.0:
+            self.right_wall_point = temp_R
 
         if not self.got_first_message:
             self.got_first_message = True
@@ -49,9 +53,6 @@ class WallFollower(object):
             )
         )
 
-    # def publish_wall_points(publisher, base_angle, offset_angle):
-    #     publish_point()
-
     def run(self):
         r = rospy.Rate(50)
 
@@ -61,10 +62,12 @@ class WallFollower(object):
         while not rospy.is_shutdown():
             print 'Left Point: ' + str(self.left_wall_point)
             print 'Right Point: ' + str(self.right_wall_point)
-            print 'angular: ' + str(self.right_wall_point - self.left_wall_point)
+
+            angle = math.pi/4 - math.atan2(self.left_wall_point, self.right_wall_point)
+            print 'angle: ' + str(angle)
 
             fwd_msg = Twist(linear=Vector3(0.75, 0.0, 0.0), 
-                            angular=Vector3(0.0, 0.0, self.k * (self.right_wall_point - self.left_wall_point)))
+                            angular=Vector3(0.0, 0.0, self.k * angle))
             self.movement_publisher.publish(fwd_msg)
 
             r.sleep()
