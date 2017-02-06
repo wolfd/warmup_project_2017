@@ -10,6 +10,7 @@ from std_msgs.msg import Header, ColorRGBA
 import tf
 import math
 import rospy
+import numpy as np
 
 def angle_normalize(z):
     """ convenience function to map an angle to the range [-pi,pi] """
@@ -100,7 +101,6 @@ class ObstacleAvoider(object):
             color=color
         )
         return marker
-            
 
     def update_odometry(self, msg):
         current_pos = msg.pose.pose.position
@@ -136,10 +136,36 @@ class ObstacleAvoider(object):
             x_mag += dx
             y_mag += dy
 
-        final_mag = math.sqrt(x_mag**2 + y_mag**2)
-        final_angle = math.atan2(y_mag, x_mag)
+        return np.array([x_mag, y_mag])
 
-        return final_mag, final_angle
+    def to_mag_and_angle(self, vector):
+        return np.linalg.norm(vector), math.atan2(vector[1], vector[0])
+
+    def to_vector(self, mag, angle):
+        return np.array([
+            math.cos(angle) * mag,
+            math.sin(angle) * mag
+        ])
+
+    def get_motion_vector(self, obstacle_vector):
+        robot_direction = self.to_vector(1.0, self.angle)
+
+        res_mag, res_angle = self.to_mag_and_angle(obstacle_vector)
+        dtheta = angle_diff(res_angle, self.angle)
+        turn_mag = 0.6 * dtheta
+
+        return Twist(
+            linear=Vector3(
+                np.dot(robot_direction, obstacle_vector),
+                0.0,
+                0.0
+            ),
+            angular=Vector3(
+                0.0,
+                0.0,
+                turn_mag
+            )
+        )
 
     def run(self):
         r = rospy.Rate(40)
@@ -155,14 +181,16 @@ class ObstacleAvoider(object):
             for point in points:
                 obstacles.append(Obstacle(point.x, point.y, 0.0001, 0.5, 0.5))
             
-            print 'x: ' + str(self.x)
-            print 'y: ' + str(self.y)
-            print 'angle: ' + str(self.angle)
-            res_mag, res_angle = self.sum_forces(self.x, self.y, obstacles)
-            print 'force: ' + str(res_mag)
-            print 'force_angle: ' + str(res_angle)
-            dtheta = angle_diff(res_angle,self.angle)
-            print 'dtheta: ' + str(dtheta)
+            obstacle_vector = self.sum_forces(self.x, self.y, obstacles)
+            res_mag, res_angle = self.to_mag_and_angle(obstacle_vector)
+
+            motion_vector = self.get_motion_vector(obstacle_vector)
+
+            # Visualize Goal
+            sphere = self.create_sphere(
+                1,
+                Point(self.goal.x, self.goal.y, 0)
+            )
 
             # Visualize force
             arrow = self.create_arrow(
@@ -171,46 +199,24 @@ class ObstacleAvoider(object):
                 self.to_quat(res_angle),
                 res_mag
             )
-            # Visualize Goal
-            sphere = self.create_sphere(
-                1,
-                Point(self.goal.x, self.goal.y, 0))
 
-            
-            if dtheta > 0.05:
-                forward_mag = 0
-            else:
-                forward_mag = 0.1 * res_mag / abs(dtheta + 0.01)
-            turn_mag = 0.6 * dtheta
-
-           
             # Visualize instructions being sent
             arrow2 = self.create_arrow(
                 2, 
                 Point(self.x, self.y, 0),
                 self.to_quat(self.angle),
-                forward_mag,
+                motion_vector.linear.x,
                 color=ColorRGBA(0.0, 1.0, 1.0, 0.75)
             )
 
             marker_array = MarkerArray(markers=[arrow, sphere, arrow2])
             self.marker_publisher.publish(marker_array)
 
-
             if res_mag != 0:
-                forward_msg = Twist(
-                    # div by dtheta + 0.01 so robot goes slower when turning
-                    # 0.01 is to avoid division by 0
-                    linear=Vector3(forward_mag, 0, 0),
-                    angular=Vector3(0.0, 0.0, turn_mag)
-                )
-                self.publisher.publish(forward_msg)
+                self.publisher.publish(motion_vector)
             else:
                 self.stop()
             
             r.sleep()
 
 ObstacleAvoider().run()
-
-
-        
