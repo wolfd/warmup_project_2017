@@ -3,7 +3,9 @@
 from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Pose, Point, Twist, Vector3
 from nav_msgs.msg import Odometry
-from obstacles import Goal
+from sensor_msgs.msg import PointCloud
+from obstacles import Goal, Obstacle
+
 import tf
 import math
 import rospy
@@ -39,6 +41,7 @@ class ObstacleAvoider(object):
         rospy.init_node('obstacle_avoider')
         self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.Subscriber('/odom', Odometry, self.update_odometry)
+        rospy.Subscriber('/projected_stable_scan', PointCloud, self.process_scan)
 
         # Coordinates of goal
         x_g = 1
@@ -54,8 +57,16 @@ class ObstacleAvoider(object):
         self.angle = None
 
         self.got_first_message = False
+        self.got_first_scan = False
 
         rospy.on_shutdown(self.stop)
+
+    def process_scan(self, msg):
+        self.scan_msg = msg
+
+        if not self.got_first_scan:
+            self.got_first_scan = True
+            
 
     def update_odometry(self, msg):
         current_pos = msg.pose.pose.position
@@ -75,28 +86,49 @@ class ObstacleAvoider(object):
             Twist(linear=Vector3(0.0, 0.0, 0.0), angular=Vector3(0.0, 0.0, 0.0))
         )
 
+    def sum_forces(self, x, y, obstacles):
+        y_mag = 0
+        x_mag = 0
+        for item in obstacles:
+            angle = item.get_angle(x, y)
+            mag = item.get_mag(x, y)
+            dx = mag * math.cos(angle)
+            dy = mag * math.sin(angle)
+            x_mag += dx
+            y_mag += dy
+
+        final_mag = math.sqrt(x_mag**2 + y_mag**2)
+        final_angle = math.atan2(y_mag, x_mag)
+
+        return final_mag, final_angle
+
     def run(self):
         r = rospy.Rate(40)
 
-        while not self.got_first_message:
+        while not self.got_first_message or not self.got_first_scan:
             r.sleep()
 
         while not rospy.is_shutdown():
             
+            # populate obstacles
+            points = self.scan_msg.points
+            obstacles = [self.goal]
+            for point in points:
+                obstacles.append(Obstacle(point.x, point.y, 0.0001, 0.5, 100))
+            
             print 'x: ' + str(self.x)
             print 'y: ' + str(self.y)
             print 'angle: ' + str(self.angle)
-            mag = self.goal.get_mag(self.x, self.y)
-            theta = self.goal.get_angle(self.x, self.y)
-            print 'theta: ' + str(theta)
-            dtheta = angle_diff(theta,self.angle)
+            res_mag, res_angle = self.sum_forces(self.x, self.y, obstacles)
+            print 'theta: ' + str(res_angle)
+            dtheta = angle_diff(res_angle,self.angle)
             print 'dtheta: ' + str(dtheta)
 
-            if mag != 0:
+            if res_mag != 0:
                 forward_msg = Twist(
                     # div by dtheta + 0.01 -> robot goes slower when turning
                     # 0.01 is to avoid division by 0
-                    linear=Vector3(mag/ abs(dtheta + 0.01), 0, 0),
+                    linear=Vector3(res_mag/ abs(dtheta + 0.01), 0, 0),
                     angular=Vector3(0.0, 0.0, 0.6 *dtheta)
                 )
                 self.publisher.publish(forward_msg)

@@ -61,7 +61,7 @@ class FieldPublisher(object):
 
 
     def generate_arrow_field(self, rows, columns, obstacles):
-        magnitudes = np.zeros([rows,columns])
+        magnitudes = np.zeros([len(rows),len(columns)])
         index = 0
         arrows = []
         for (row, col), mag in np.ndenumerate(magnitudes):
@@ -69,8 +69,8 @@ class FieldPublisher(object):
             x_mag = 0
             # Obstacles also includes the goals
             for item in obstacles:
-                angle = item.get_angle(row - rows/2, col - columns/2)
-                mag = item.get_mag(row - rows/2, col - columns/2)
+                angle = item.get_angle(rows[row], columns[col])
+                mag = item.get_mag(rows[row], columns[col])
                 dx = mag * math.cos(angle)
                 dy = mag * math.sin(angle)
                 x_mag += dx
@@ -81,7 +81,7 @@ class FieldPublisher(object):
 
             marker = self.create_arrow(
                 index, 
-                Point(row - rows/2, col - columns/2, 0),
+                Point(rows[row], columns[col], 0),
                 self.to_quat(final_angle),
                 final_mag
             )
@@ -101,7 +101,10 @@ class FieldPublisher(object):
             obstacles = [self.goal]
             for point in points:
                 obstacles.append(Obstacle(point.x, point.y, 0.0001, 0.5, 2))
-            markers = self.generate_arrow_field(11,11, obstacles)
+            markers = self.generate_arrow_field(
+                np.linspace(-3,3,10),
+                np.linspace(-3,3,10), 
+                obstacles)
             marker_array = MarkerArray(markers=markers)
             self.publisher.publish(marker_array)
             
