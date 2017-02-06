@@ -20,4 +20,9 @@ This approach works well, however over long periods of time the error can accumu
 
 ### Person Follower
 
-![Person Following Diagram](https://sites.google.com/site/comprobofall14/_/rsrc/1467135970182/home/projects/project-0/Person%20Following.png?)
+The intended behavior of this program is for the program to follow you around like a pet! This works by using lidar data to detect points within a certain box in front of the robot. The robot then rotates such that it is on axis with the centroid of the points, and moves such that it is a specified distance from that centroid. 
+
+![Person Following Diagram](https://sites.google.com/site/comprobofall14/_/rsrc/1467135970182/home/projects/project-0/Person%20Following.png)
+
+This approach works very well for people, however the robot can easily become confused when it detects rigid points such as a chair or a wall. Going further, one might take the derivative of the points, such that only points that are changing will be used to calculate the centroid. One important feature of our code was that we were able to seperate the centroid-finding and person-following behavior into two seperate nodes. person_finder.py transmits visualization data to rviz as well as the position of the centroid. person_follower.py takes the centroid and adjusts it's position to maintain a specified distance.
+
