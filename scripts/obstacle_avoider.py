@@ -153,7 +153,7 @@ class ObstacleAvoider(object):
             points = self.scan_msg.points
             obstacles = [self.goal]
             for point in points:
-                obstacles.append(Obstacle(point.x, point.y, 0.0001, 0.9, 0.5))
+                obstacles.append(Obstacle(point.x, point.y, 0.0001, 0.5, 0.5))
             
             print 'x: ' + str(self.x)
             print 'y: ' + str(self.y)
@@ -177,7 +177,7 @@ class ObstacleAvoider(object):
                 Point(self.goal.x, self.goal.y, 0))
 
             
-            if dtheta > 0.01:
+            if dtheta > 0.05:
                 forward_mag = 0
             else:
                 forward_mag = 0.1 * res_mag / abs(dtheta + 0.01)
