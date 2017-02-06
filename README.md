@@ -1,7 +1,7 @@
 # Computational Robotics Warmup Project
 ## Danny Wolf and Jonah Spear
 
-The goal of this project was be to program a Neato (a small vacuum cleaner robot) to execute a number of behaviors. In the process of implementing these behaviors, we learned about tools and strategies for debugging robot programs. This assignment was an opportunity to become familiar with ROS's publisher-subscriber architecture, working sensor data (lidar, bump sensor, odometry), and visualization of the above information for debugging purposes.
+The goal of this project was be to program a Neato (a small vacuum cleaner robot) to execute a number of behaviors. In the process of implementing these behaviors, we learned about tools and strategies for debugging robot programs. This assignment was an opportunity to become familiar with ROS's publisher-subscriber architecture, work with sensor data (lidar, bump sensor, odometry), and use effective visualizations for debugging purposes.
 
 ### The Square Dance
 
