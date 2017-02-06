@@ -26,3 +26,16 @@ The intended behavior of this program is for the program to follow you around li
 
 This approach works very well for people, however the robot can easily become confused when it detects rigid points such as a chair or a wall. Going further, one might take the derivative of the points, such that only points that are changing will be used to calculate the centroid. One important feature of our code was that we were able to seperate the centroid-finding and person-following behavior into two seperate nodes. person_finder.py transmits visualization data to rviz as well as the position of the centroid. person_follower.py takes the centroid and adjusts it's position to maintain a specified distance.
 
+# INSERT GIF OF PERSON FOLLOWING HERE
+
+### Obstacle Avoidance
+
+The final portion of this assignment combined all the previous aspects in a much more complex task. The goal is for the robot to progress towards a goal, avoiding any obstacles it may encounter along the way. 
+
+![Obstacle Avoidance Diagram](https://sites.google.com/site/comprobofall14/_/rsrc/1467135963572/home/projects/project-0/Obstacle%20Avoidance.png) 
+
+Rather than using a brute force approach (turn 90 degrees when it encounters an obstacle, and then turning back toward the goal once the obstacle is gone) we decided to implement a more general approach using potential fields. The basic idea is that each obstacle acts as a repellant, and the 'goal' acts as an attractor. The goal and the obstacles each generate a vector field. The robots movements is decribed the by the sum of the vector fields at the position of the robot. For a more detailed description of the approahch see [here](http://phoenix.goucher.edu/~jillz/cs325_robotics/goodrich_potential_fields.pdf). The relevant code is included in obstacle_avoider.py
+
+# INSERT GIF OF OBSTACLE AVOIDANCE HERE
+
+
