@@ -2,6 +2,8 @@
 from visualization_msgs.msg import Marker, MarkerArray
 from geometry_msgs.msg import Pose, Point, Vector3, Quaternion
 from std_msgs.msg import Header, ColorRGBA
+from obstacles import Goal, Obstacle
+from sensor_msgs.msg import PointCloud
 
 import math
 import numpy as np
@@ -15,6 +17,24 @@ class FieldPublisher(object):
         rospy.init_node('field_publisher')
 
         self.publisher = rospy.Publisher('/vector_field', MarkerArray, queue_size=10)
+        rospy.Subscriber('/projected_stable_scan', PointCloud, self.process_scan)
+
+        self.got_first_message = False
+        self.can_msg = None
+        x_g = 1
+        y_g = 0
+        r = 0.2
+        s = 3
+        alpha = 0.2
+
+        self.goal = Goal(x_g, y_g, r, s, alpha)
+
+    def process_scan(self, msg):
+        self.scan_msg = msg
+
+        if not self.got_first_message:
+            self.got_first_message = True
+            
 
     def create_arrow(self, number, pos, quat, mag):
         marker = Marker(
@@ -33,54 +53,58 @@ class FieldPublisher(object):
         )
         return marker
 
-    def get_mag(self, r, s, xg, yg, x, y):
-        d = math.sqrt((xg - x)**2 + (yg - y)**2)
-        alpha = 2
-        if d < r:
-            return 0
-        if d >= r and (s+r) >= d:
-            return alpha * (d - r)
-        else:
-            return alpha * s
 
-    def get_angle(self, xg, yg, x, y):
-        theta = math.atan2(yg - y, xg - x)
+    def to_quat(self, theta):
         quat = tf.transformations.quaternion_from_euler(
             0, 0, theta)
         return Quaternion(quat[0], quat[1], quat[2], quat[3])
 
-    def generate_arrow_field(self, rows, columns):
+
+    def generate_arrow_field(self, rows, columns, obstacles):
         magnitudes = np.zeros([rows,columns])
         index = 0
         arrows = []
-        r = 0.75
-        s = 3
         for (row, col), mag in np.ndenumerate(magnitudes):
+            y_mag = 0
+            x_mag = 0
+            # Obstacles also includes the goals
+            for item in obstacles:
+                angle = item.get_angle(row - rows/2, col - columns/2)
+                mag = item.get_mag(row - rows/2, col - columns/2)
+                dx = mag * math.cos(angle)
+                dy = mag * math.sin(angle)
+                x_mag += dx
+                y_mag += dy
+
+            final_mag = math.sqrt(x_mag**2 + y_mag**2)
+            final_angle = math.atan2(y_mag, x_mag)
+
             marker = self.create_arrow(
                 index, 
                 Point(row - rows/2, col - columns/2, 0),
-                self.get_angle(5, 0, row - rows/2, col - columns/2,),
-                0.1 * self.get_mag(r, s, 5, 0, row - rows/2, col - columns/2)
+                self.to_quat(final_angle),
+                final_mag
             )
             arrows.append(marker)
             index += 1
         return arrows   
 
-
-        
-
     def run(self):
         r = rospy.Rate(50)
 
+        while not self.got_first_message:
+            r.sleep()
+
         while not rospy.is_shutdown():
-            pos = Point(1,1,0)
-            quat = Quaternion(1,0,0,1)
-            markers = self.generate_arrow_field( 11,11)
+            
+            points = self.scan_msg.points
+            obstacles = [self.goal]
+            for point in points:
+                obstacles.append(Obstacle(point.x, point.y, 0.0001, 0.5, 2))
+            markers = self.generate_arrow_field(11,11, obstacles)
             marker_array = MarkerArray(markers=markers)
             self.publisher.publish(marker_array)
             
-
-
             r.sleep()
 
 FieldPublisher().run()   

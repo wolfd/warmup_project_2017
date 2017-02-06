@@ -55,5 +55,7 @@ class PersonFollower(object):
             )
             self.publisher.publish(turn_msg)
 
+            r.sleep()
+
 PersonFollower().run()
 
