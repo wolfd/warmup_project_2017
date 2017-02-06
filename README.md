@@ -36,6 +36,6 @@ The final portion of this assignment combined all the previous aspects in a much
 
 Rather than using a brute force approach (turn 90 degrees when it encounters an obstacle, and then turning back toward the goal once the obstacle is gone) we decided to implement a more general approach using potential fields. The basic idea is that each obstacle acts as a repellant, and the 'goal' acts as an attractor. The goal and the obstacles each generate a vector field. The robots movements is decribed the by the sum of the vector fields at the position of the robot. For a more detailed description of the approahch see [here](http://phoenix.goucher.edu/~jillz/cs325_robotics/goodrich_potential_fields.pdf). The relevant code is included in obstacle_avoider.py
 
-# INSERT GIF OF OBSTACLE AVOIDANCE HERE
+![Gif of Obstacle Avoidance]https://github.com/wolfd/warmup_project_2017/blob/master/screenshots/obstacle_avoider.gif
 
 
