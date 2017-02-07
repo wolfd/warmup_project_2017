@@ -8,12 +8,12 @@ import numpy as np
 import tf
 import math
 
-
+import smach
 import rospy
 
-class SquareDance(object):
-    def __init__(self):
-        super(SquareDance, self).__init__()
+class SquareDance(smach.State):
+    def __init__(self, outcomes=['reached_end', 'hit_something']):
+        super(SquareDance, self).__init__(outcomes=outcomes)
         self.left_front_triggered = 0
         self.right_front_triggered = 0
 
@@ -24,8 +24,6 @@ class SquareDance(object):
         self.starting_orientation = None
 
         self.running = False
-
-        rospy.init_node('square_dance')
 
         rospy.Subscriber('/bump', Bump, self.detect_bump)
         rospy.Subscriber('/odom', Odometry, self.update_odometry)
@@ -106,8 +104,9 @@ class SquareDance(object):
                 self.publisher.publish(fwd_msg)
             else:
                 self.stop()
-                return
+                return True
             r.sleep()
+        return False
 
     def delta_angle(self, a, b):
         return ((b - a) + math.pi) % (math.pi * 2.0) - math.pi
@@ -128,7 +127,8 @@ class SquareDance(object):
                 return
             r.sleep()
 
-
+    def execute(self, userdata):
+        return self.run()
 
     def run(self):
         r = rospy.Rate(50)
@@ -138,10 +138,14 @@ class SquareDance(object):
             r.sleep()
 
         for i in range(4):
-            self.go_forward(distance=1.0)
+            success = self.go_forward(distance=1.0)
+            if not success:
+                return 'hit_something'
             self.rotate(-math.pi / 2.0)
+        return 'reached_end'
 
-        
         print('done!')
 
-SquareDance().run()
+if __name__ == '__main__':
+    rospy.init_node('square_dance')
+    SquareDance().run()

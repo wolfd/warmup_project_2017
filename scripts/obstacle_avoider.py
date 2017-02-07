@@ -7,6 +7,8 @@ from sensor_msgs.msg import PointCloud
 from obstacles import Goal, Obstacle
 from std_msgs.msg import Header, ColorRGBA
 
+import smach
+
 import tf
 import math
 import rospy
@@ -35,12 +37,11 @@ def angle_diff(a, b):
     else:
         return d2
 
-class ObstacleAvoider(object):
+class ObstacleAvoider(smach.State):
     """Avoids obstacles"""
-    def __init__(self):
-        super(ObstacleAvoider, self).__init__()
+    def __init__(self, outcomes=['reached_goal', 'timed_out']):
+        super(ObstacleAvoider, self).__init__(outcomes=outcomes)
         
-        rospy.init_node('obstacle_avoider')
         self.publisher = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         rospy.Subscriber('/odom', Odometry, self.update_odometry)
         rospy.Subscriber('/projected_stable_scan', PointCloud, self.process_scan)
@@ -50,7 +51,7 @@ class ObstacleAvoider(object):
         y_g = 0
         r = 0.2
         s = 3
-        alpha = 0.2
+        alpha = 0.3
 
         self.goal = Goal(x_g, y_g, r, s, alpha)
 
@@ -167,14 +168,18 @@ class ObstacleAvoider(object):
             )
         )
 
-    def run(self):
+    def execute(self, userdata):
+        return self.run(timeout=30)
+
+    def run(self, timeout=None):
         r = rospy.Rate(40)
+
+        time_started = rospy.get_rostime()
 
         while not self.got_first_message or not self.got_first_scan:
             r.sleep()
 
         while not rospy.is_shutdown():
-            
             # populate obstacles
             points = self.scan_msg.points
             obstacles = [self.goal]
@@ -216,7 +221,16 @@ class ObstacleAvoider(object):
                 self.publisher.publish(motion_vector)
             else:
                 self.stop()
+
+
+            if self.goal.get_distance(self.x, self.y) < self.goal.radius * 2.0:
+                return 'reached_goal'
+            elif timeout is not None and (rospy.get_rostime() - time_started).secs > timeout:
+                return 'timed_out'
             
             r.sleep()
 
-ObstacleAvoider().run()
+if __name__ == '__main__':
+    rospy.init_node('obstacle_avoider')
+    ObstacleAvoider().run()
+
