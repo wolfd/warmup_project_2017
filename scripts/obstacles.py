@@ -6,7 +6,7 @@ class Goal(object):
     """Reperesents a something the robot is attracted to"""
     def __init__(self, x, y, radius, attraction_limit, attraction_factor):
         super(Goal, self).__init__()
-        #
+
         self.x = x # X position of the goal
         self.y = y # Y position of the goal
         self.radius = radius # The radius of the goal (represented as a sphere)
