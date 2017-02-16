@@ -12,8 +12,11 @@ class Goal(object):
         self.limit = limit
         self.alpha = alpha
 
+    def get_distance(self, x, y):
+        return math.sqrt((self.x - x)**2 + (self.y - y)**2)
+
     def get_mag(self, x, y):
-        d = math.sqrt((self.x - x)**2 + (self.y - y)**2)
+        d = self.get_distance(x, y)
         if d < self.radius:
             return 0
         if d >= self.radius and (self.limit+self.radius) >= d:
