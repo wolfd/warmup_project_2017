@@ -14,6 +14,9 @@ import math
 import rospy
 
 class WallFollower(object):
+    """
+    Class that encapsulates Wall Following ROS node.
+    """
     def __init__(self):
         super(WallFollower, self).__init__()
         rospy.init_node('wall_follower')
@@ -22,12 +25,13 @@ class WallFollower(object):
         self.marker_publisher = rospy.Publisher('/visualization_messages/Marker', Marker, queue_size=10)
         rospy.Subscriber('/stable_scan', LaserScan, self.process_scan)
 
-        self.got_first_message = False
-        self.offset_angle = 45
-        self.base_angle = 90
-        self.left_wall_point = 0
-        self.right_wall_point = 0
-        self.k = 2.0
+        self.got_first_message = False # Tell whether we recieved our first message
+        self.offset_angle = 45 # the angle that each laser point is offset from center
+
+        self.base_angle = 90 # The angle between the robot and the wall
+        self.left_wall_point = 0 # Initial left point
+        self.right_wall_point = 0 # Initial right point
+        self.k = 2.0 # Turning constant for proportional control
 
         self.position = None
         self.orientation = None
@@ -35,11 +39,18 @@ class WallFollower(object):
         rospy.on_shutdown(self.stop)
 
     def stop(self):
+        """
+        Tells the robot to stop moving.
+        """
         self.movement_publisher.publish(
             Twist(linear=Vector3(0.0, 0.0, 0.0), angular=Vector3(0.0, 0.0, 0.0))
         )
 
     def process_scan(self, msg):
+        """
+        Processes a stabilized_lazer_scan message. Saves the distance to the left 
+        and right wall points.
+        """
         self.left_wall_point = msg.ranges[(self.base_angle + self.offset_angle) % 360]
         self.right_wall_point = msg.ranges[(self.base_angle - self.offset_angle) % 360]
 
@@ -47,6 +58,13 @@ class WallFollower(object):
             self.got_first_message = True
 
     def publish_points(self, xs, ys):
+        """
+        Helper function that masks marker publishing. Publishes a list of points.
+
+        Args:
+            xs: list of x points
+            ys: list of y points 
+        """
         marker = Marker(
             type=Marker.POINTS,
             header=Header(
@@ -61,6 +79,9 @@ class WallFollower(object):
         self.marker_publisher.publish(marker)
 
     def publish_wall_points(self):
+        """
+        Publishes markers at the left and right wall point. 
+        """
         d_l = self.left_wall_point
         theta_l = math.radians(self.base_angle + self.offset_angle)
         x_l = d_l * math.cos(theta_l)
@@ -74,8 +95,12 @@ class WallFollower(object):
         self.publish_points([x_l, x_r], [y_l, y_r])
 
     def run(self):
+        """
+        Function that contains the logic of the main function.
+        """
         r = rospy.Rate(50)
 
+        # Don't move until we get the first message
         while not self.got_first_message:
             r.sleep()
 
@@ -83,9 +108,11 @@ class WallFollower(object):
             print 'Left Point: ' + str(self.left_wall_point)
             print 'Right Point: ' + str(self.right_wall_point)
 
+            # Calculate the angle between the robot and the wall
             angle = math.pi/4 - math.atan2(self.left_wall_point, self.right_wall_point)
             print 'angle: ' + str(angle)
 
+            # Dont move while we're getting faulty points
             if self.left_wall_point == 0.0 or self.right_wall_point == 0.0:
                 print 'not communicating properly... stopping'
                 self.stop()
@@ -96,10 +123,6 @@ class WallFollower(object):
                 self.movement_publisher.publish(fwd_msg)
 
             r.sleep()
-
-
-
-
 
 WallFollower().run()
 
