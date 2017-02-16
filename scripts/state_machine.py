@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+
 import rospy
 import smach
 import smach_ros
@@ -9,12 +10,13 @@ from obstacle_avoider import ObstacleAvoider
 def main():
     rospy.init_node('square_and_avoid_state_machine')
 
+    # create a smach state machine
     sm = smach.StateMachine(outcomes=['give_up'])
     with sm:
         smach.StateMachine.add(
             'obstacle_avoider',
             ObstacleAvoider(),
-            transitions={
+            transitions={ # define the transitions that obstacle_avoider can go through to other states
                 'reached_goal': 'square_dance',
                 'timed_out': 'give_up'
             }
@@ -29,6 +31,7 @@ def main():
             }
         )
 
+    # start the state machine
     outcome = sm.execute()
 
 

@@ -12,6 +12,9 @@ import smach
 import rospy
 
 class SquareDance(smach.State):
+    """
+    SquareDance is a 
+    """
     def __init__(self, outcomes=['reached_end', 'hit_something']):
         super(SquareDance, self).__init__(outcomes=outcomes)
         self.left_front_triggered = 0
