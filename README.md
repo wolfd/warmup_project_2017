@@ -9,6 +9,8 @@ The first behavior we implemented was that of the robot driving in a 1 meter x 1
 
 ![Square Dance Gif](https://github.com/wolfd/warmup_project_2017/blob/master/screenshots/square.gif)
 
+(Red dots are laser scan data)
+
 ### Wall Follower
 
 The goal of this behavior was for the robot to follow a roughly linear wall. To do this we calculated the angle of the robot with respect to the wall (defined by two reference points), and used a proportional controller to keep the angle at 90 degrees - and the robot parallel to the wall. 
